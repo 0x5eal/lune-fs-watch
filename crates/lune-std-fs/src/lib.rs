@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use bstr::{BString, ByteSlice};
 use globset::Glob;
+use notify::event::AccessKind;
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::fs;
 
@@ -177,11 +178,13 @@ async fn fs_watch(
         }
 
         let handler = match event.kind {
-            EventKind::Any | EventKind::Other => continue,
-            EventKind::Access(_) => &read_handler,
-            EventKind::Remove(_) => &removed_handler,
-            EventKind::Create(_) => &added_handler,
-            EventKind::Modify(_) => &changed_handler,
+            EventKind::Access(AccessKind::Read) => &read_handler, // File was read
+            EventKind::Remove(_) => &removed_handler,             // File was removed
+            EventKind::Create(_) => &added_handler,               // File was created
+            EventKind::Modify(_) => &changed_handler,             // File was mutated
+
+            // Unsupported Events
+            EventKind::Any | EventKind::Other | EventKind::Access(_) => continue,
         };
 
         if let Some(handler) = handler {
