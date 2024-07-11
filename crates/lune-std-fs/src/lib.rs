@@ -137,8 +137,8 @@ async fn fs_watch(
     lua: &Lua,
     (root_path, options, handlers): (String, WatchOptions, LuaTable<'_>),
 ) -> LuaResult<()> {
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-    let mut watcher = options.as_watcher(tx).into_lua_err()?;
+    let to_watch_files = options.watch_diretories;
+    let to_watch_dirs = options.watch_files;
 
     let added_handler = handlers.get::<_, LuaFunction>("added").ok();
     let read_handler = handlers.get::<_, LuaFunction>("read").ok();
@@ -149,15 +149,17 @@ async fn fs_watch(
         .into_lua_err()?
         .compile_matcher();
 
+    let recursive_mode = if options.recursive {
+        RecursiveMode::Recursive
+    } else {
+        RecursiveMode::NonRecursive
+    };
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    let mut watcher = options.into_watcher(tx).into_lua_err()?;
+
     watcher
-        .watch(
-            &PathBuf::from(root_path),
-            if options.recursive {
-                RecursiveMode::Recursive
-            } else {
-                RecursiveMode::NonRecursive
-            },
-        )
+        .watch(&PathBuf::from(root_path), recursive_mode)
         .into_lua_err()?;
 
     while let Some(res) = rx.recv().await {
@@ -165,10 +167,7 @@ async fn fs_watch(
         let filtered_paths = event
             .paths
             .iter()
-            .filter(|elem| {
-                (elem.is_file() && options.watch_files)
-                    || (elem.is_dir() && options.watch_diretories)
-            })
+            .filter(|elem| (elem.is_file() && to_watch_files) || (elem.is_dir() && to_watch_dirs))
             .filter(|elem| (glob.is_match(elem)))
             .map(|elem| elem.to_string_lossy())
             .collect::<Vec<_>>();

@@ -4,16 +4,21 @@ use mlua::prelude::*;
 use notify::{Config, Event, RecommendedWatcher, Watcher};
 
 pub struct WatchOptions {
+    /// A glob pattern defining which files to watch.
     pub pattern: String,
+    /// Whether to watch changes recursively.
     pub recursive: bool,
+    /// Whether to watch files.
     pub watch_files: bool,
+    /// Whether to watch directories.
     pub watch_diretories: bool,
+    /// The interval in seconds to poll for changes.
     pub interval: Option<u64>,
 }
 
 impl WatchOptions {
-    pub fn as_watcher(
-        &self,
+    pub fn into_watcher(
+        self,
         tx: tokio::sync::mpsc::Sender<notify::Result<Event>>,
     ) -> notify::Result<RecommendedWatcher> {
         RecommendedWatcher::new(
@@ -44,7 +49,7 @@ impl FromLua<'_> for WatchOptions {
             }),
             LuaValue::Table(t) => Ok(Self {
                 pattern: t.get("pattern")?,
-                recursive: t.get("recursive")?,
+                recursive: t.get("recursive").unwrap_or_default(),
                 watch_files: t.get("watchFiles").unwrap_or_default(),
                 watch_diretories: t.get("watchDirectories").unwrap_or_default(),
                 interval: t.get("interval").unwrap_or_default(),
