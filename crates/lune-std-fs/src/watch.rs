@@ -3,6 +3,7 @@ use std::{default::Default, time::Duration};
 use mlua::prelude::*;
 use notify::{Config, Event, RecommendedWatcher, Watcher};
 
+#[derive(Debug)]
 pub struct WatchOptions {
     /// A glob pattern defining which files to watch.
     pub pattern: String,

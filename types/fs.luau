@@ -68,6 +68,30 @@ export type WriteOptions = {
 }
 
 --[=[
+	@interface WatchOptions
+	@within FS
+
+	Options for watching filesystem events.
+
+	This is a dictionary that may contain one or more of the following values:
+
+	* `pattern` - A glob pattern to match against the file or directory name
+	* `recursive` - If the watcher should watch recursively subdirectories or not
+	* `watchFiles` - If the watcher should watch files or not
+	* `watchDirs` - If the watcher should watch directories or not
+	* `interval` - The interval in seconds between each poll
+]=]
+export type WatchOptions = {
+	pattern: string,
+	recursive: boolean?,
+	watchFiles: boolean?,
+	watchDirs: boolean?,
+	interval: number?,
+}
+
+type WatchHandler = ({ string }) -> ()
+
+--[=[
 	@class FS
 
 	Built-in library for filesystem access
@@ -285,5 +309,26 @@ function fs.move(from: string, to: string, overwriteOrOptions: (boolean | WriteO
 	@param overwriteOrOptions Options for the target path, such as if should be overwritten if it already exists
 ]=]
 function fs.copy(from: string, to: string, overwriteOrOptions: (boolean | WriteOptions)?) end
+
+--[=[
+	@within FS
+
+	Watches a given path for changes of different types.
+
+	@param rootPath The path to watch
+	@param patternOrOptions The glob pattern to watch for, or options for the watcher
+	@param handlers A dictionary of handlers for the different types of events
+]=]
+function fs.watch(
+	rootPath: string,
+	patternOrOptions: string | WatchOptions,
+	handlers: {
+		added: WatchHandler,
+		read: WatchHandler,
+		removed: WatchHandler,
+		changed: WatchHandler,
+	}
+)
+end
 
 return fs
