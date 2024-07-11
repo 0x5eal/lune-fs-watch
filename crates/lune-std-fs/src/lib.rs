@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use bstr::{BString, ByteSlice};
 use globset::Glob;
-use notify::event::AccessKind;
+use notify::event::{AccessKind, ModifyKind, RenameMode};
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::fs;
 
@@ -144,6 +144,7 @@ async fn fs_watch(
     let read_handler = handlers.get::<_, LuaFunction>("read").ok();
     let removed_handler = handlers.get::<_, LuaFunction>("removed").ok();
     let changed_handler = handlers.get::<_, LuaFunction>("changed").ok();
+    let renamed_handler = handlers.get::<_, LuaFunction>("renamed").ok();
 
     let glob = Glob::new(&options.pattern)
         .into_lua_err()?
@@ -180,10 +181,14 @@ async fn fs_watch(
             EventKind::Access(AccessKind::Read) => &read_handler, // File was read
             EventKind::Remove(_) => &removed_handler,             // File was removed
             EventKind::Create(_) => &added_handler,               // File was created
-            EventKind::Modify(_) => &changed_handler,             // File was mutated
+            EventKind::Modify(ModifyKind::Data(_)) => &changed_handler, // File was edited
+
+            // NOTE: Ideally, it would be nice to supply the handler with the old and new file names
+            // but notify-rs currently doesn't support this; see https://github.com/notify-rs/notify/issues/376
+            EventKind::Modify(ModifyKind::Name(RenameMode::To)) => &renamed_handler, // File was renamed
 
             // Unsupported Events
-            EventKind::Any | EventKind::Other | EventKind::Access(_) => continue,
+            _ => continue,
         };
 
         if let Some(handler) = handler {

@@ -327,6 +327,7 @@ function fs.watch(
 		read: WatchHandler,
 		removed: WatchHandler,
 		changed: WatchHandler,
+		renamed: WatchHandler,
 	}
 )
 end
