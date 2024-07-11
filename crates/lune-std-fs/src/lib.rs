@@ -1,13 +1,15 @@
 #![allow(clippy::cargo_common_metadata)]
 
 use std::io::ErrorKind as IoErrorKind;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use bstr::{BString, ByteSlice};
-use mlua::prelude::*;
-use mlua_luau_scheduler::LuaSchedulerExt;
+use globset::Glob;
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::fs;
+
+use mlua::prelude::*;
+use mlua_luau_scheduler::LuaSchedulerExt;
 
 use lune_utils::TableBuilder;
 use watch::WatchOptions;
@@ -136,9 +138,15 @@ async fn fs_watch(
 ) -> LuaResult<()> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let mut watcher = options.as_watcher(tx).into_lua_err()?;
+
     let added_handler = handlers.get::<_, LuaFunction>("added").ok();
+    let read_handler = handlers.get::<_, LuaFunction>("read").ok();
     let removed_handler = handlers.get::<_, LuaFunction>("removed").ok();
     let changed_handler = handlers.get::<_, LuaFunction>("changed").ok();
+
+    let glob = Glob::new(&options.pattern)
+        .into_lua_err()?
+        .compile_matcher();
 
     watcher
         .watch(
@@ -153,16 +161,31 @@ async fn fs_watch(
 
     while let Some(res) = rx.recv().await {
         let event = res.into_lua_err()?;
+        let filtered_paths = event
+            .paths
+            .iter()
+            .filter(|elem| {
+                (elem.is_file() && options.watch_files)
+                    || (elem.is_dir() && options.watch_diretories)
+            })
+            .filter(|elem| (glob.is_match(elem)))
+            .map(|elem| elem.to_string_lossy())
+            .collect::<Vec<_>>();
+
+        if filtered_paths.is_empty() {
+            continue;
+        }
+
         let handler = match event.kind {
             EventKind::Any | EventKind::Other => continue,
-            EventKind::Access(_) => todo!(),
+            EventKind::Access(_) => &read_handler,
             EventKind::Remove(_) => &removed_handler,
             EventKind::Create(_) => &added_handler,
             EventKind::Modify(_) => &changed_handler,
         };
 
         if let Some(handler) = handler {
-            lua.push_thread_back(handler, ())?;
+            lua.push_thread_back(handler, filtered_paths)?;
         }
     }
 

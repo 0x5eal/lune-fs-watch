@@ -3,7 +3,6 @@ use std::{default::Default, time::Duration};
 use mlua::prelude::*;
 use notify::{Config, Event, RecommendedWatcher, Watcher};
 
-#[derive(Default)]
 pub struct WatchOptions {
     pub pattern: String,
     pub recursive: bool,
@@ -24,12 +23,24 @@ impl WatchOptions {
     }
 }
 
+impl Default for WatchOptions {
+    fn default() -> Self {
+        Self {
+            pattern: String::default(),
+            recursive: false,
+            watch_files: true,
+            watch_diretories: true,
+            interval: Some(30),
+        }
+    }
+}
+
 impl FromLua<'_> for WatchOptions {
     fn from_lua(value: LuaValue<'_>, _: &'_ mlua::Lua) -> LuaResult<Self> {
         match value {
             LuaValue::String(s) => Ok(Self {
                 pattern: s.to_str()?.to_string(),
-                ..Default::default()
+                ..Self::default()
             }),
             LuaValue::Table(t) => Ok(Self {
                 pattern: t.get("pattern")?,
