@@ -323,11 +323,11 @@ function fs.watch(
 	rootPath: string,
 	patternOrOptions: string | WatchOptions,
 	handlers: {
-		added: WatchHandler,
-		read: WatchHandler,
-		removed: WatchHandler,
-		changed: WatchHandler,
-		renamed: WatchHandler,
+		added: WatchHandler?,
+		read: WatchHandler?,
+		removed: WatchHandler?,
+		changed: WatchHandler?,
+		renamed: WatchHandler?,
 	}
 )
 end
